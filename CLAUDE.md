@@ -65,7 +65,9 @@ CIM PDF
 | — | EBITDA (reported) | `EBITDA` | Reference field only — no Excel row, client reference |
 | 21 | Other expense/(income) | `Other_Expense` | DONE — Rule 13; Chimera only (EBITDA adj table); null for other 3 |
 | 22 | Interest Expense | `Interest_Expense` | DONE — Rule 14; historical years only (YYYY_A); null all 4 test PDFs |
-| 23 | Depreciation | `Depreciation` | NEXT — Rule 15; historical + projected; Chimera has values; null for other 3 |
+| 23 | Depreciation | `Depreciation` | DONE — Rule 15; historical + projected; Chimera has values; null for other 3 |
+| 32 | CAPEX | `CAPEX` | DONE — Rule 16; output negative; Total Capex row only; Chimera + Network have values |
+| 33 | Working Capital Change | `WC_Change` | NEXT — Rule 17; change in NWC year-over-year; Palm has explicit row; Chimera has it as (Growth)/Decline |
 
 **Type 2 — Formula (DO NOT overwrite):**
 - Growth Rate (row 8), GM% (row 11), Operating Income (row 15)
@@ -111,6 +113,8 @@ LLM must output period keys in this exact format:
 13. Other_Expense: only if explicitly labeled; no bundled-interest rows; sign: parentheses=negative
 14. Interest_Expense: historical years (YYYY_A/TTM) ONLY — null for YYYY_E; no bundled rows; no balance sheet
 15. Depreciation: historical + projected both; standalone "Depreciation" or "D&A" row; NEVER derive; null if not found
+16. CAPEX: output as negative; Total Capex row only; base row not incl. one-time items; hist + projected
+17. WC_Change: year-over-year change in NWC; output negative if NWC increases (cash use); hist + projected; labels vary
 
 ---
 
@@ -147,9 +151,11 @@ LLM must output period keys in this exact format:
 | 5 | EBITDA reported/plain (reference field) | DONE |
 | 6 | Other expense/(income) — Rule 13 | DONE |
 | 7 | Interest Expense — Rule 14 (historical only) | DONE |
-| 8 | Depreciation — Rule 15 (hist + projected) | NEXT |
-| 9 | 1X Adjustments | TODO |
-| 10 | Excel writer | TODO |
+| 8 | Depreciation — Rule 15 (hist + projected) | DONE |
+| 9 | CAPEX — Rule 16 (output negative) | DONE |
+| 10 | Working Capital Change — Rule 17 | NEXT |
+| 11 | 1X Adjustments | TODO |
+| 12 | Excel writer | TODO |
 
 ---
 
