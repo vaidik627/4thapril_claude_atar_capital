@@ -118,6 +118,10 @@ class CIMParser:
                 "interest charges", "interest on debt",
                 "capex", "capital expenditure", "capital expenditures", "total capex",
                 "capital spending", "purchases of property", "pp&e",
+                "change in working capital", "change in nwc", "changes in working capital",
+                "working capital change", "(growth) / decline in net working capital",
+                "increase in working capital", "decrease in working capital",
+                "change in operating working capital",
             ]
             
         logging.info(f"Filtering content over {len(self.extracted_text)} text pages and {len(self.extracted_tables)} tables...")
@@ -493,6 +497,37 @@ class LLMExtractor:
             "     - Normalise units to $000s. If CAD, output as-is without USD conversion.\n"
             "     - Zero (0) is a valid value — output 0, not null.\n"
             "     - If not present in the document → output null for all years.\n"
+            "     - If a year has no value in an otherwise present row → output null for that year.\n"
+            "17. WORKING CAPITAL CHANGE EXTRACTION LOGIC:\n"
+            "   Year-over-year change in Net Working Capital (Excel row 33).\n"
+            "   Sign convention: NWC INCREASE = cash outflow = NEGATIVE. NWC DECREASE = cash inflow = POSITIVE.\n"
+            "   Extract BOTH historical (YYYY_A/TTM_YYYY) AND projected (YYYY_E) years.\n\n"
+            "   EXTRACTION RULES:\n"
+            "     STEP 1 — Look for a row explicitly labeled one of (case-insensitive):\n"
+            "       a) 'Change in NWC' or 'Change in Working Capital'\n"
+            "       b) 'Changes in Working Capital' or 'Change in Operating Working Capital'\n"
+            "       c) '(Growth) / Decline in Net Working Capital' or 'Growth / (Decline) in Net Working Capital'\n"
+            "       d) 'Increase / (Decrease) in Working Capital' or '(Increase) / Decrease in Working Capital'\n"
+            "       e) 'Net Working Capital Change' or 'Working Capital Change'\n"
+            "     STEP 2 — SIGN INTERPRETATION (critical — label wording determines sign):\n"
+            "       - If label says 'Change in NWC' or 'Change in Working Capital':\n"
+            "           Parentheses value = NWC increased = cash outflow → output as NEGATIVE.\n"
+            "           Positive value = NWC decreased = cash inflow → output as POSITIVE.\n"
+            "       - If label says '(Growth) / Decline in Net Working Capital':\n"
+            "           Positive value = decline in NWC = cash inflow → output as POSITIVE.\n"
+            "           Parentheses value = growth in NWC = cash outflow → output as NEGATIVE.\n"
+            "           In both cases: parentheses → negative, no parentheses → positive.\n"
+            "       - General rule: convert parentheses to negative always. The sign direction is preserved.\n"
+            "   HARD RULES:\n"
+            "     - Extract ONLY from an explicitly labeled change/movement row — NEVER calculate by subtracting\n"
+            "       NWC balances yourself (e.g. do not compute NWC(year2) - NWC(year1)).\n"
+            "     - The first year in any table will have no prior period comparison → output null for that year.\n"
+            "     - NEVER use 'Net Working Capital' balance rows — only the change/movement row.\n"
+            "     - NEVER extract 'Adjusted NWC' balance totals as the change value.\n"
+            "     - NEVER extract from narrative text, bullet points, or charts.\n"
+            "     - Do NOT derive from components (AR + Inventory + Payables changes).\n"
+            "     - Normalise units to $000s. If CAD, output as-is without USD conversion.\n"
+            "     - If not present in the document → output null for all years.\n"
             "     - If a year has no value in an otherwise present row → output null for that year."
         )
 
@@ -518,9 +553,13 @@ class LLMExtractor:
             "  NOTE for Interest_Expense: historical years (YYYY_A / TTM_YYYY) ONLY — null for any YYYY_E.\n"
             "  \"Depreciation\":      {\"2021_A\": value, \"2022_A\": value, \"2023_A\": value, \"2024_E\": value, ...},\n"
             "  NOTE for Depreciation: include BOTH historical (YYYY_A/TTM_YYYY) AND projected (YYYY_E) years.\n"
-            "  \"CAPEX\":             {\"2021_A\": value, \"2022_A\": value, \"2023_A\": value, \"2024_E\": value, ...}\n"
+            "  \"CAPEX\":             {\"2021_A\": value, \"2022_A\": value, \"2023_A\": value, \"2024_E\": value, ...},\n"
             "  NOTE for CAPEX: output as NEGATIVE numbers (e.g. -2490, not 2490). Both historical and projected.\n"
             "  Use 'Total Capex' row only — never breakdown lines. If two Total Capex rows exist, use the first (base, not incl. one-time items).\n"
+            "  \"WC_Change\":         {\"2021_A\": value, \"2022_A\": value, \"2023_A\": value, \"2024_E\": value, ...}\n"
+            "  NOTE for WC_Change: NWC increase = NEGATIVE (cash outflow), NWC decrease = POSITIVE (cash inflow).\n"
+            "  Extract only from explicit change/movement row — NEVER from NWC balance rows or by calculation.\n"
+            "  First year in table = null (no prior period). Both historical and projected years.\n"
             "}\n"
             "Include every period found in the document. Use null for any metric not found."
         )
@@ -632,7 +671,16 @@ def main():
             "   If two Total Capex rows exist (base vs. incl. one-time items), use the FIRST base row.\n"
             "   NEVER derive from fixed asset schedule changes. NEVER extract from narrative text.\n"
             "   Zero is a valid value — output 0, not null.\n"
-            "   Output null if not found in a structured financial table.\n\n"
+            "   Output null if not found in a structured financial table.\n"
+            "11) WC_Change — Year-over-year change in Net Working Capital per year. Follow Rule 17.\n"
+            "   Labels: 'Change in NWC', 'Change in Working Capital', 'Changes in Working Capital',\n"
+            "   '(Growth) / Decline in Net Working Capital', 'Change in Operating Working Capital'.\n"
+            "   Sign: NWC increase = NEGATIVE (cash outflow). NWC decrease = POSITIVE (cash inflow).\n"
+            "   Parentheses in source always convert to negative. Preserve sign as output.\n"
+            "   Extract BOTH historical (YYYY_A/TTM_YYYY) AND projected (YYYY_E) years.\n"
+            "   First year in any table = null (no prior period to compare).\n"
+            "   NEVER calculate from NWC balance rows. NEVER extract NWC balance as the change.\n"
+            "   Output null if no explicit change row found in any financial table.\n\n"
             "Output all numeric values in $000s (thousands). "
             "If currency is CAD, output as-is without USD conversion. "
             "If a metric does not exist in the document, use null."
