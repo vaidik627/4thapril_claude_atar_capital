@@ -116,6 +116,8 @@ class CIMParser:
                 "interest expense", "interest expense, net", "net interest expense",
                 "interest and debt expense", "finance costs", "finance charges",
                 "interest charges", "interest on debt",
+                "capex", "capital expenditure", "capital expenditures", "total capex",
+                "capital spending", "purchases of property", "pp&e",
             ]
             
         logging.info(f"Filtering content over {len(self.extracted_text)} text pages and {len(self.extracted_tables)} tables...")
@@ -466,6 +468,31 @@ class LLMExtractor:
             "     - Convert parentheses to negative: (1,200) = -1200.\n"
             "     - Normalise units to $000s. If CAD, output as-is without USD conversion.\n"
             "     - If not present in the document → output null for all years.\n"
+            "     - If a year has no value in an otherwise present row → output null for that year.\n"
+            "16. CAPEX EXTRACTION LOGIC:\n"
+            "   Capital expenditures — cash spent on fixed assets (Excel row 32). Output as NEGATIVE numbers.\n"
+            "   Extract BOTH historical (YYYY_A/TTM_YYYY) AND projected (YYYY_E) years.\n\n"
+            "   EXTRACTION RULES:\n"
+            "     STEP 1 — Look for a row explicitly labeled one of (case-insensitive):\n"
+            "       a) 'Total Capex' or 'Total Capital Expenditures' or 'Total CapEx'\n"
+            "       b) 'Capital Expenditures' or 'Capex' (standalone summary row)\n"
+            "       c) 'Capital Spending' or 'Purchases of property, plant & equipment'\n"
+            "   HARD RULES:\n"
+            "     - ALWAYS use the 'Total Capex' subtotal row — NEVER sum individual breakdown lines\n"
+            "       (e.g. Warehouse Equipment, Building Improvements, Maintenance, Growth, Other).\n"
+            "     - If the document shows TWO Total Capex rows (e.g. 'Total Capex' and\n"
+            "       'Total Capex (incl. Plant Consolidations)' or similar with one-time items) —\n"
+            "       use the FIRST 'Total Capex' row (base recurring capex). NEVER use the inflated\n"
+            "       version that includes one-time plant consolidations or non-recurring items.\n"
+            "     - OUTPUT AS NEGATIVE: multiply the extracted value by -1 before outputting.\n"
+            "       E.g. if the table shows 2,490 → output -2490. If already in parentheses (2,490) → output -2490.\n"
+            "       Do NOT double-negate: if source shows (2,490) it is already a cash outflow → output -2490.\n"
+            "     - NEVER extract from narrative text, bullet points, or charts.\n"
+            "     - NEVER derive capex from fixed asset schedule changes (e.g. delta in gross PP&E).\n"
+            "     - Extract BOTH historical (YYYY_A/TTM_YYYY) AND projected (YYYY_E) years.\n"
+            "     - Normalise units to $000s. If CAD, output as-is without USD conversion.\n"
+            "     - Zero (0) is a valid value — output 0, not null.\n"
+            "     - If not present in the document → output null for all years.\n"
             "     - If a year has no value in an otherwise present row → output null for that year."
         )
 
@@ -489,8 +516,11 @@ class LLMExtractor:
             "  \"Other_Expense\":     {\"2021_A\": value, \"2022_A\": value, \"2023_A\": value, ...},\n"
             "  \"Interest_Expense\":  {\"2021_A\": value, \"2022_A\": value, \"2023_A\": value, ...},\n"
             "  NOTE for Interest_Expense: historical years (YYYY_A / TTM_YYYY) ONLY — null for any YYYY_E.\n"
-            "  \"Depreciation\":      {\"2021_A\": value, \"2022_A\": value, \"2023_A\": value, \"2024_E\": value, ...}\n"
+            "  \"Depreciation\":      {\"2021_A\": value, \"2022_A\": value, \"2023_A\": value, \"2024_E\": value, ...},\n"
             "  NOTE for Depreciation: include BOTH historical (YYYY_A/TTM_YYYY) AND projected (YYYY_E) years.\n"
+            "  \"CAPEX\":             {\"2021_A\": value, \"2022_A\": value, \"2023_A\": value, \"2024_E\": value, ...}\n"
+            "  NOTE for CAPEX: output as NEGATIVE numbers (e.g. -2490, not 2490). Both historical and projected.\n"
+            "  Use 'Total Capex' row only — never breakdown lines. If two Total Capex rows exist, use the first (base, not incl. one-time items).\n"
             "}\n"
             "Include every period found in the document. Use null for any metric not found."
         )
@@ -593,7 +623,16 @@ def main():
             "   If 'Depreciation' and 'Amortization' are on separate rows, extract only 'Depreciation'.\n"
             "   NEVER extract 'Amortization of intangibles' for this field.\n"
             "   Zero (0) is a valid value — output 0, not null.\n"
-            "   Output null if not explicitly labeled in a financial table.\n\n"
+            "   Output null if not explicitly labeled in a financial table.\n"
+            "10) CAPEX — Capital expenditures per year. Follow Rule 16.\n"
+            "   Labels: 'Total Capex', 'Total Capital Expenditures', 'Capital Expenditures', 'Capex'.\n"
+            "   Extract BOTH historical (YYYY_A/TTM_YYYY) AND projected (YYYY_E) years.\n"
+            "   OUTPUT AS NEGATIVE: value from table is 2,490 → output -2490.\n"
+            "   Use ONLY 'Total Capex' subtotal row — NEVER individual breakdown lines (Maintenance, Growth, etc.).\n"
+            "   If two Total Capex rows exist (base vs. incl. one-time items), use the FIRST base row.\n"
+            "   NEVER derive from fixed asset schedule changes. NEVER extract from narrative text.\n"
+            "   Zero is a valid value — output 0, not null.\n"
+            "   Output null if not found in a structured financial table.\n\n"
             "Output all numeric values in $000s (thousands). "
             "If currency is CAD, output as-is without USD conversion. "
             "If a metric does not exist in the document, use null."
