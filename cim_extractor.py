@@ -187,8 +187,15 @@ class LLMExtractor:
                 self.client = anthropic.Anthropic(api_key=self.api_key)
             except ImportError:
                 raise ImportError("Please install anthropic: pip install anthropic")
+        elif self.provider == "ollama":
+            try:
+                from openai import OpenAI
+                base_url = os.getenv("OLLAMA_BASE_URL", "https://openapi.ollama.ai/v1")
+                self.client = OpenAI(base_url=base_url, api_key=self.api_key)
+            except ImportError:
+                raise ImportError("Please install openai: pip install openai")
         else:
-            raise ValueError("Unsupported provider. Choose 'openai', 'anthropic', or 'nvidia'.")
+            raise ValueError("Unsupported provider. Choose 'openai', 'anthropic', 'nvidia', or 'ollama'.")
 
     def map_to_excel_columns(self, extracted_data: Dict) -> Dict:
         """
@@ -305,13 +312,24 @@ class LLMExtractor:
             "   Do NOT extract numbers from charts, graphs, bullet points, narrative text, or illustrative figures. "
             "   If a year appears only in a chart or narrative but not in a financial table, do NOT include it.\n"
             "8. Check the units of each table independently. If one table uses thousands and another uses millions, normalise both to thousands before outputting.\n"
-            "9. SG&A FIELD ALIASES: The SG&A field may appear under many different names depending on the document. "
-            "   Treat ALL of the following as SG&A and map them to 'SG&A' in your output:\n"
-            "   - 'SG&A', 'SGA', 'Selling, General & Administrative', 'Selling, General and Administrative'\n"
+            "9. SG&A EXTRACTION RULES:\n"
+            "   Extract ONLY if a row is explicitly labeled with one of these names in a structured financial table:\n"
+            "   VALID LABELS (extract these):\n"
+            "   - 'SG&A', 'SGA', 'Unadjusted SG&A', 'Adjusted SG&A'\n"
+            "   - 'Selling, General & Administrative', 'Selling, General and Administrative'\n"
+            "   - 'Selling & Marketing', 'Selling Expenses'\n"
             "   - 'G&A', 'General & Administrative', 'General and Administrative'\n"
-            "   - 'Operating Expenses', 'Total Operating Expenses', 'Overhead', 'Opex'\n"
-            "   - Any expense line that sits BELOW gross margin / contribution margin and ABOVE EBITDA.\n"
-            "   IMPORTANT: Do NOT confuse SG&A with COGS or direct costs — those are already captured in Gross Margin.\n"
+            "   - 'Overhead' (only if it is a standalone labeled row, not a subtotal)\n"
+            "   HARD RULES:\n"
+            "   - NEVER extract a row labeled 'Operating Expenses', 'Total Operating Expenses', or 'Opex' as SG&A.\n"
+            "     These are calculated subtotal rows (Gross Profit - Operating Income) and will produce wrong values.\n"
+            "   - NEVER infer or calculate SG&A from other lines. Only extract if the label is explicit.\n"
+            "   - NEVER use 'Any expense line between gross margin and EBITDA' as a rule — that is too vague.\n"
+            "   - Do NOT confuse SG&A with COGS or direct costs — those are captured in Gross Margin.\n"
+            "   - If no row with a valid SG&A label exists in any financial table → output null for ALL years.\n"
+            "   - SG&A is always output as a POSITIVE number (it is a cost/expense).\n"
+            "     If the table shows SG&A in parentheses e.g. (13.2) or as a negative → convert to positive.\n"
+            "     Example: table shows (13,200) or -13,200 → output 13200.\n"
             "10. OPERATING INCOME EXTRACTION LOGIC:\n"
             "   OUTPUT FORMAT per year: {\"value\": number_or_null, \"source\": \"extracted\"|\"calculated\"|\"null\", \"formula\": null_or_string, \"confidence\": \"high\"|\"medium\"|\"low\"}\n"
             "   If data is insufficient for a year → output null (not an object) for that year.\n\n"
@@ -639,7 +657,7 @@ class LLMExtractor:
 
         logging.info(f"Sending extraction request to {self.provider.upper()} ({self.model_name})...")
         try:
-            if self.provider in ["openai", "nvidia"]:
+            if self.provider in ["openai", "nvidia", "ollama"]:
                 kwargs = {
                     "model": self.model_name,
                     "messages": [
@@ -651,6 +669,9 @@ class LLMExtractor:
                 
                 if self.provider == "openai":
                     kwargs["response_format"] = {"type": "json_object"}
+                elif self.provider == "ollama":
+                    kwargs["temperature"] = 0.1
+                    kwargs["max_tokens"] = 8192
                 else:
                     kwargs["top_p"] = 0.7
                     kwargs["max_tokens"] = 4096
@@ -702,9 +723,13 @@ def main():
             "1) Total_Revenue (also labeled as: net revenue, total net revenue)\n"
             "2) Gross_Margin (also labeled as: contribution margin, gross profit, CM — "
             "the revenue minus direct costs/COGS line, whatever it is called)\n"
-            "3) SG&A (also labeled as: selling general & administrative, G&A, operating expenses, "
-            "overhead, opex — the expense line sitting BELOW gross margin and ABOVE EBITDA. "
-            "Do NOT include COGS or direct costs here)\n"
+            "3) SGA — Selling, General & Administrative expenses. Follow Rule 9 strictly.\n"
+            "   VALID labels: 'SG&A', 'SGA', 'Unadjusted SG&A', 'Selling, General & Administrative',\n"
+            "   'G&A', 'General & Administrative', 'Selling & Marketing', 'Overhead' (standalone only).\n"
+            "   NEVER extract rows labeled 'Operating Expenses' or 'Total Operating Expenses' for this field.\n"
+            "   NEVER calculate or infer SG&A — only extract if explicitly labeled in a financial table.\n"
+            "   Output as POSITIVE number always — if table shows parentheses or negative, convert to positive.\n"
+            "   Output null for ALL years if no valid SG&A label is found in the document.\n"
             "4) Operating_Income — follow the strict 4-step priority logic defined in the system rules (Rule 10).\n"
             "   Per year output: {value, source, formula, confidence}. Output null for years with insufficient data.\n"
             "5) Adj_EBITDA — Adjusted EBITDA per year. Follow the strict priority logic in Rule 11.\n"
@@ -779,7 +804,7 @@ def main():
         ),
         help="Description of exactly what you want extracted from the financials."
     )
-    parser.add_argument("--provider", type=str, default="openai", choices=["openai", "anthropic", "nvidia"], help="LLM Provider to use (openai, anthropic, or nvidia).")
+    parser.add_argument("--provider", type=str, default="openai", choices=["openai", "anthropic", "nvidia", "ollama"], help="LLM Provider to use (openai, anthropic, nvidia, or ollama).")
     parser.add_argument("--model", type=str, default="gpt-4o", help="Model name (e.g., gpt-4o, claude-3-5-sonnet-20240620, meta/llama-3.3-70b-instruct)")
     parser.add_argument("--api-key", type=str, default=None, help="API key (overrides environment variable).")
     args = parser.parse_args()
@@ -788,12 +813,12 @@ def main():
     if args.api_key:
         api_key = args.api_key
     else:
-        env_var_map = {"openai": "OPENAI_API_KEY", "anthropic": "ANTHROPIC_API_KEY", "nvidia": "NVIDIA_API_KEY"}
+        env_var_map = {"openai": "OPENAI_API_KEY", "anthropic": "ANTHROPIC_API_KEY", "nvidia": "NVIDIA_API_KEY", "ollama": "OLLAMA_API_KEY"}
         api_key_env = env_var_map[args.provider]
         api_key = os.getenv(api_key_env)
 
     if not api_key:
-        env_var_map = {"openai": "OPENAI_API_KEY", "anthropic": "ANTHROPIC_API_KEY", "nvidia": "NVIDIA_API_KEY"}
+        env_var_map = {"openai": "OPENAI_API_KEY", "anthropic": "ANTHROPIC_API_KEY", "nvidia": "NVIDIA_API_KEY", "ollama": "OLLAMA_API_KEY"}
         api_key_env = env_var_map[args.provider]
         logging.error(f"Missing API key. Provide it via --api-key or set the {api_key_env} environment variable.")
         exit(1)
@@ -814,18 +839,10 @@ def main():
 
         # Output the result
         if result:
-            # Map extracted year labels → Excel column labels
-            excel_result = extractor.map_to_excel_columns(result)
-
             print("\n" + "="*50)
             print("EXTRACTED FINANCIAL DATA (raw)")
             print("="*50)
             print(json.dumps(result, indent=4))
-
-            print("\n" + "="*50)
-            print("EXCEL COLUMN MAPPING (FY19/FY20/FY21 / Year_1-5)")
-            print("="*50)
-            print(json.dumps(excel_result, indent=4))
 
             output_dir = "extracted_results"
             os.makedirs(output_dir, exist_ok=True)
@@ -836,12 +853,7 @@ def main():
             with open(raw_file, 'w') as f:
                 json.dump(result, f, indent=4)
 
-            mapped_file = os.path.join(output_dir, f"{base_name}_excel_mapped.json")
-            with open(mapped_file, 'w') as f:
-                json.dump(excel_result, f, indent=4)
-
             logging.info(f"Raw JSON saved to {raw_file}")
-            logging.info(f"Excel-mapped JSON saved to {mapped_file}")
         else:
             logging.error("The LLM failed to return a valid extraction or threw an error.")
             
