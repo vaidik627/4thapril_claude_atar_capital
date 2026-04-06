@@ -559,24 +559,24 @@
 <script>
 /* ─── Field config ─────────────────────────────────────────────────────── */
 const FIELD_META = {
-  Total_Revenue:    { label: "Net Revenue",             key: "Row 7",  rule: "Rule 2" },
-  Gross_Margin:     { label: "Gross Margin",            key: "Row 10", rule: "Rule 3" },
-  SGA:              { label: "SG&A",                    key: "Row 13", rule: "Rule 9" },
-  Operating_Income: { label: "Operating Income",        key: "Row 15", rule: "Rule 10", nested: true },
-  Adj_EBITDA:       { label: "Adj. EBITDA",             key: "Row 18", rule: "Rule 11" },
-  EBITDA:           { label: "EBITDA (Reported)",       key: "Ref",    rule: "Rule 12" },
-  Other_Expense:    { label: "Other Expense / (Income)",key: "Row 21", rule: "Rule 13" },
-  Interest_Expense: { label: "Interest Expense",        key: "Row 22", rule: "Rule 14" },
-  Depreciation:     { label: "Depreciation & Amort.",   key: "Row 23", rule: "Rule 15" },
-  CAPEX:            { label: "Capital Expenditure",     key: "Row 32", rule: "Rule 16" },
-  WC_Change:        { label: "Working Capital Change",  key: "Row 33", rule: "Rule 17" },
-  AR:               { label: "Accounts Receivable",     key: "C7",     rule: "Rule 18", single: true },
-  Inventory:        { label: "Inventory",               key: "C8",     rule: "Rule 19", single: true },
+  Total_Revenue:      { label: "Net Revenue",             key: "Row 7",  rule: "Rule 2" },
+  Gross_Margin:       { label: "Gross Margin",            key: "Row 10", rule: "Rule 3" },
+  SGA:                { label: "SG&A",                    key: "Row 13", rule: "Rule 9" },
+  Adj_EBITDA:         { label: "Adj. EBITDA",             key: "Row 18", rule: "Rule 10" },
+  EBITDA:             { label: "EBITDA (Reported)",       key: "Ref",    rule: "Rule 11" },
+  Onex_Adjustments:   { label: "1x Adjustments",         key: "Bridge", rule: "Rule 20" },
+  Other_Expense:      { label: "Other Expense / (Income)",key: "Row 21", rule: "Rule 12" },
+  Interest_Expense:   { label: "Interest Expense",        key: "Row 22", rule: "Rule 13" },
+  Depreciation:       { label: "Depreciation & Amort.",   key: "Row 23", rule: "Rule 14" },
+  CAPEX:              { label: "Capital Expenditure",     key: "Row 32", rule: "Rule 15" },
+  WC_Change:          { label: "Working Capital Change",  key: "Row 33", rule: "Rule 16" },
+  AR:                 { label: "Accounts Receivable",     key: "C7",     rule: "Rule 17", single: true },
+  Inventory:          { label: "Inventory",               key: "C8",     rule: "Rule 18", single: true },
 };
 
 const SECTION_GROUPS = [
   { label: "Revenue & Margins",  fields: ["Total_Revenue","Gross_Margin","SGA"] },
-  { label: "Operating Metrics",  fields: ["Operating_Income","Adj_EBITDA","EBITDA"] },
+  { label: "Operating Metrics",  fields: ["Adj_EBITDA","EBITDA","Onex_Adjustments"] },
   { label: "Below-the-Line",     fields: ["Other_Expense","Interest_Expense","Depreciation"] },
   { label: "Capital & Liquidity",fields: ["CAPEX","WC_Change"] },
   { label: "Balance Sheet (Sources)", fields: ["AR","Inventory"] },
@@ -786,29 +786,6 @@ function buildTable(fields, years) {
         if (!data) {
           td.className = `td-val null${addCls}`;
           td.textContent = "—";
-        } else if (meta.nested) {
-          /* Operating_Income: {value, source, formula, confidence} */
-          const v = data[yr];
-          if (v === null || v === undefined) {
-            td.className = `td-val null${addCls}`;
-            td.textContent = "—";
-          } else if (typeof v === "object") {
-            const val = v.value;
-            const conf = v.confidence || "";
-            const confBadge = conf ? `<span class="conf-badge conf-${conf.toLowerCase()}">${conf}</span>` : "";
-            const isNeg = typeof val === "number" && val < 0;
-            const valStr = val !== null && val !== undefined ? formatVal(val) : "—";
-            const negCls = isNeg ? " negative" : "";
-            td.innerHTML = `
-              <div class="val-wrap">
-                <span class="val-main${negCls}">${escHtml(valStr)}</span>
-                ${conf ? `<span class="val-meta">${confBadge}</span>` : ""}
-              </div>`;
-          } else {
-            const isNeg = typeof v === "number" && v < 0;
-            td.className = `td-val${isNeg?" negative":""}${addCls}`;
-            td.textContent = formatVal(v);
-          }
         } else {
           const v = data[yr];
           if (v === null || v === undefined) {
@@ -816,7 +793,7 @@ function buildTable(fields, years) {
             td.textContent = "—";
           } else {
             const isNeg = typeof v === "number" && v < 0;
-            td.className = `td-val${isNeg?" negative":""}${addCls}`;
+            td.className = `td-val${isNeg ? " negative" : ""}${addCls}`;
             td.textContent = formatVal(v);
           }
         }
@@ -1042,12 +1019,7 @@ function collectYears(data) {
   Object.values(data).forEach(v => {
     if (v && typeof v === "object" && !Array.isArray(v)) {
       Object.keys(v).forEach(k => {
-        /* Skip Operating_Income sub-keys (value/source/formula/confidence) */
-        if (["value","source","formula","confidence"].includes(k)) return;
-        /* Check if nested (Operating Income values are objects with those keys) */
-        if (typeof v[k] === "object" && v[k] !== null && "value" in v[k]) {
-          yearsSet.add(k);
-        } else if (k.match(/^\d{4}_(A|E)$|^TTM_\d{4}$|^TTM$/)) {
+        if (k.match(/^\d{4}_(A|E)$|^TTM_\d{4}$|^TTM$/)) {
           yearsSet.add(k);
         }
       });
