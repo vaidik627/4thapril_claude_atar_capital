@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>CIM Intelligence | Atar Capital</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #080C14; --surface: #0F1623; --surface2: #151D2E;
+      --border: #1C2840; --border2: #243352;
+      --text: #E2E8F5; --text-muted: #5A6480; --text-sub: #8892AA;
+      --accent: #3B82F6; --accent-dim: #1D3461; --accent-glow: rgba(59,130,246,0.15);
+      --green: #10B981; --green-dim: #064E3B; --red: #EF4444;
+      --radius: 10px; --radius-lg: 14px;
+    }
+    html, body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; font-size: 14px; line-height: 1.6; min-height: 100vh; }
+    .app-shell { display: grid; grid-template-rows: auto 1fr; min-height: 100vh; }
+    .topbar { border-bottom: 1px solid var(--border); padding: 0 2.5rem; height: 56px; display: flex; align-items: center; justify-content: space-between; background: var(--surface); position: sticky; top: 0; z-index: 100; }
+    .topbar-brand { display: flex; align-items: center; gap: 12px; }
+    .brand-icon { width: 28px; height: 28px; background: linear-gradient(135deg,#1D4ED8,#3B82F6); border-radius: 7px; display: flex; align-items: center; justify-content: center; }
+    .brand-icon svg { width: 16px; height: 16px; fill: none; stroke: #fff; stroke-width: 2; }
+    .brand-name { font-weight: 700; font-size: 0.95rem; letter-spacing: -0.2px; }
+    .brand-divider { width: 1px; height: 18px; background: var(--border2); }
+    .brand-client { font-size: 0.78rem; color: var(--text-muted); font-weight: 500; }
+    .topbar-tag { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); background: var(--accent-dim); border: 1px solid rgba(59,130,246,0.3); padding: 3px 10px; border-radius: 20px; }
+    .main-grid { display: grid; grid-template-columns: 380px 1fr; min-height: calc(100vh - 56px); }
+    .left-panel { border-right: 1px solid var(--border); padding: 2rem 1.75rem; background: var(--surface); display: flex; flex-direction: column; gap: 1.5rem; }
+    .panel-header { padding-bottom: 1.25rem; border-bottom: 1px solid var(--border); }
+    .panel-title { font-size: 1rem; font-weight: 700; }
+    .panel-sub { font-size: 0.8rem; color: var(--text-muted); margin-top: 3px; }
+    .upload-zone { border: 2px dashed var(--border2); border-radius: var(--radius-lg); padding: 2rem 1.5rem; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--surface2); position: relative; }
+    .upload-zone:hover, .upload-zone.drag-over { border-color: var(--accent); background: var(--accent-glow); }
+    .upload-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .upload-icon { width: 40px; height: 40px; background: var(--accent-dim); border-radius: 10px; margin: 0 auto 1rem; display: flex; align-items: center; justify-content: center; }
+    .upload-icon svg { width: 20px; height: 20px; stroke: var(--accent); fill: none; stroke-width: 2; }
+    .upload-label { font-weight: 600; font-size: 0.88rem; }
+    .upload-hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+    .upload-filename { display: none; margin-top: 0.75rem; font-size: 0.78rem; font-family: 'JetBrains Mono', monospace; color: var(--green); background: var(--green-dim); padding: 4px 12px; border-radius: 6px; word-break: break-all; }
+    .field-group { display: flex; flex-direction: column; gap: 1rem; }
+    .field-label { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-sub); margin-bottom: 5px; display: block; }
+    .field-input, .field-select { width: 100%; background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius); color: var(--text); font-family: inherit; font-size: 0.875rem; padding: 9px 13px; outline: none; transition: border-color 0.15s; appearance: none; }
+    .field-input:focus, .field-select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+    .field-input::placeholder { color: var(--text-muted); }
+    .field-select-wrap { position: relative; }
+    .field-select-wrap::after { content: ''; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); border: 5px solid transparent; border-top-color: var(--text-sub); pointer-events: none; }
+    .field-select option { background: var(--surface2); }
+    .key-indicator { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); }
+    .dot.ok { background: var(--green); } .dot.err { background: var(--red); }
+    .run-btn { width: 100%; background: linear-gradient(135deg,#1D4ED8,#2563EB); border: none; border-radius: var(--radius); color: #fff; font-family: inherit; font-size: 0.9rem; font-weight: 700; padding: 13px; cursor: pointer; transition: opacity 0.15s, transform 0.1s; }
+    .run-btn:hover:not(:disabled) { opacity: 0.88; }
+    .run-btn:active:not(:disabled) { transform: scale(0.99); }
+    .run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .right-panel { padding: 2rem 2.5rem; overflow-y: auto; }
+    .idle-state { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; text-align: center; gap: 1rem; }
+    .idle-icon { width: 64px; height: 64px; background: var(--surface2); border: 1px solid var(--border); border-radius: 16px; display: flex; align-items: center; justify-content: center; }
+    .idle-icon svg { width: 32px; height: 32px; stroke: var(--text-muted); fill: none; stroke-width: 1.5; }
+    .idle-title { font-size: 1.1rem; font-weight: 700; }
+    .idle-desc { font-size: 0.85rem; color: var(--text-muted); max-width: 380px; line-height: 1.5; }
+    .fields-preview { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; max-width: 500px; }
+    .chip { font-size: 0.72rem; font-weight: 500; padding: 4px 10px; border-radius: 20px; background: var(--surface2); border: 1px solid var(--border2); color: var(--text-sub); }
+    .progress-panel { display: none; }
+    .progress-title { font-size: 1rem; font-weight: 700; margin-bottom: 1.5rem; }
+    .step-list { display: flex; flex-direction: column; gap: 0; }
+    .step { display: flex; align-items: flex-start; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .step:last-child { border-bottom: none; }
+    .step-dot { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border2); background: var(--surface2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; transition: all 0.3s; }
+    .step-dot.active { border-color: var(--accent); background: var(--accent-glow); box-shadow: 0 0 8px var(--accent-glow); }
+    .step-dot.done { border-color: var(--green); background: var(--green-dim); }
+    .step-dot .spinner { width: 10px; height: 10px; border: 2px solid rgba(59,130,246,0.3); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    .step-dot .check { display: none; }
+    .step-dot.done .spinner { display: none; }
+    .step-dot.done .check { display: block; width: 10px; height: 10px; stroke: var(--green); fill: none; stroke-width: 2.5; }
+    .step-dot.pending .spinner { display: none; }
+    .step-name { font-size: 0.85rem; font-weight: 600; }
+    .step-desc { font-size: 0.75rem; color: var(--text-muted); margin-top: 1px; }
+    .log-box { margin-top: 1.5rem; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: var(--text-muted); line-height: 1.7; max-height: 200px; overflow-y: auto; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .results-panel { display: none; }
+    .results-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.75rem; gap: 1rem; }
+    .results-title { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.3px; }
+    .results-meta { font-size: 0.8rem; color: var(--text-muted); margin-top: 3px; }
+    .badge-found { display: inline-block; background: var(--green-dim); border: 1px solid rgba(16,185,129,0.3); color: var(--green); font-size: 0.75rem; font-weight: 600; padding: 4px 12px; border-radius: 20px; }
+    .section-hdr { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); margin: 1.75rem 0 0.75rem; display: flex; align-items: center; gap: 10px; }
+    .section-hdr::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .data-table-wrap { overflow-x: auto; border-radius: var(--radius-lg); border: 1px solid var(--border); }
+    .data-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    .data-table th { background: var(--surface2); color: var(--text-muted); font-weight: 600; font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; padding: 10px 14px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    .data-table th:first-child { text-align: left; }
+    .data-table td { padding: 9px 14px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+    .data-table td:first-child { text-align: left; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: rgba(255,255,255,0.02); }
+    .field-name { font-weight: 600; color: var(--text); }
+    .field-row-hint { font-size: 0.7rem; color: var(--text-muted); margin-top: 1px; }
+    .val-number { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--text); }
+    .val-null { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--border2); }
+    .val-obj { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-sub); }
+    .neg { color: #F87171; } .pos { color: #34D399; }
+    .sources-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .source-card { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.25rem 1.5rem; }
+    .source-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.4rem; }
+    .source-cell { font-size: 0.7rem; font-weight: 600; color: var(--accent); margin-bottom: 0.5rem; }
+    .source-value { font-size: 1.6rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; letter-spacing: -1px; }
+    .source-unit { font-size: 0.72rem; color: var(--text-muted); margin-top: 3px; }
+    .source-null .source-value { color: var(--border2); font-size: 1.1rem; }
+    .download-row { display: flex; gap: 0.75rem; margin-top: 1.75rem; }
+    .dl-btn { display: flex; align-items: center; gap: 8px; background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius); color: var(--text); font-family: inherit; font-size: 0.82rem; font-weight: 600; padding: 9px 16px; cursor: pointer; text-decoration: none; transition: border-color 0.15s, background 0.15s; }
+    .dl-btn:hover { border-color: var(--accent); background: var(--accent-glow); color: var(--accent); }
+    .dl-btn svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2; flex-shrink: 0; }
+    .expander { margin-top: 1.25rem; border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+    .expander-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--surface2); cursor: pointer; font-size: 0.8rem; font-weight: 600; color: var(--text-sub); user-select: none; }
+    .expander-header:hover { color: var(--text); }
+    .expander-arrow { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2.5; transition: transform 0.2s; }
+    .expander-body { display: none; padding: 1rem 1.25rem; background: var(--bg); font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: var(--text-sub); line-height: 1.7; max-height: 400px; overflow-y: auto; white-space: pre-wrap; }
+    .expander.open .expander-arrow { transform: rotate(180deg); }
+    .expander.open .expander-body { display: block; }
+    .error-box { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3); border-radius: var(--radius); padding: 1rem 1.25rem; color: #FCA5A5; font-size: 0.85rem; margin-top: 1rem; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <header class="topbar">
+    <div class="topbar-brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l4-8 4 4 4-6 4 10"/></svg>
+      </div>
+      <span class="brand-name">CIM Intelligence</span>
+      <div class="brand-divider"></div>
+      <span class="brand-client">Atar Capital</span>
+    </div>
+    <span class="topbar-tag">M&amp;A Deal Analysis</span>
+  </header>
+
+  <div class="main-grid">
+    <!-- LEFT PANEL -->
+    <aside class="left-panel">
+      <div class="panel-header">
+        <div class="panel-title">New Extraction</div>
+        <div class="panel-sub">Upload a CIM PDF and configure the model</div>
+      </div>
+
+      <div>
+        <label class="field-label">CIM Document (PDF)</label>
+        <div class="upload-zone" id="uploadZone">
+          <input type="file" id="pdfInput" accept=".pdf" />
+          <div class="upload-icon">
+            <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+          </div>
+          <div class="upload-label">Drop PDF here or click to browse</div>
+          <div class="upload-hint">Supports 50–180 page CIM documents · Max 200 MB</div>
+          <div class="upload-filename" id="uploadFilename"></div>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <div>
+          <label class="field-label" for="dealName">Deal / Project Name</label>
+          <input class="field-input" id="dealName" type="text" placeholder="e.g. Project Chimera" />
+        </div>
+        <div>
+          <label class="field-label" for="providerSelect">LLM Provider</label>
+          <div class="field-select-wrap">
+            <select class="field-select" id="providerSelect" onchange="onProviderChange()">
+              <option value="nvidia">NVIDIA — LLaMA 70B (free, development)</option>
+              <option value="anthropic">Anthropic — Claude (production)</option>
+              <option value="ollama">Ollama — Gemma4 31B (cloud)</option>
+              <option value="openai">OpenAI</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="field-label" for="modelSelect">Model</label>
+          <div class="field-select-wrap">
+            <select class="field-select" id="modelSelect"></select>
+          </div>
+        </div>
+        <div>
+          <label class="field-label" for="apiKeyInput">API Key</label>
+          <input class="field-input" id="apiKeyInput" type="password" placeholder="Loaded from .env automatically" />
+          <div class="key-indicator">
+            <div class="dot" id="keyDot"></div>
+            <span id="keyStatus">Checking .env...</span>
+          </div>
+        </div>
+      </div>
+
+      <button class="run-btn" id="runBtn" onclick="startExtraction()">Extract Financial Data</button>
+    </aside>
+
+    <!-- RIGHT PANEL -->
+    <main class="right-panel">
+      <div class="idle-state" id="idleState">
+        <div class="idle-icon">
+          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 8h10M7 12h6M7 16h4"/></svg>
+        </div>
+        <div class="idle-title">Ready for Extraction</div>
+        <div class="idle-desc">Upload a CIM PDF and click Extract to automatically populate your deal model fields.</div>
+        <div class="fields-preview">
+          <span class="chip">Net Revenue</span><span class="chip">Gross Margin</span>
+          <span class="chip">SG&amp;A</span><span class="chip">Operating Income</span>
+          <span class="chip">Adj. EBITDA</span><span class="chip">EBITDA</span>
+          <span class="chip">Depreciation</span><span class="chip">Interest Expense</span>
+          <span class="chip">CAPEX</span><span class="chip">WC Change</span>
+          <span class="chip">Accounts Receivable</span><span class="chip">Inventory</span>
+        </div>
+      </div>
+
+      <div class="progress-panel" id="progressPanel">
+        <div class="progress-title">Extracting — <span id="progressDealName"></span></div>
+        <div class="step-list">
+          <div class="step"><div class="step-dot pending" id="dot-parsing"><div class="spinner"></div><svg class="check" viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><div><div class="step-name">Parsing PDF</div><div class="step-desc">Extracting text and tables page by page</div></div></div>
+          <div class="step"><div class="step-dot pending" id="dot-filtering"><div class="spinner"></div><svg class="check" viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><div><div class="step-name">Filtering Financial Sections</div><div class="step-desc">Selecting pages with financial keywords</div></div></div>
+          <div class="step"><div class="step-dot pending" id="dot-extracting"><div class="spinner"></div><svg class="check" viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><div><div class="step-name">LLM Extraction</div><div class="step-desc">Sending filtered content to model — may take 30–90s</div></div></div>
+          <div class="step"><div class="step-dot pending" id="dot-done"><div class="spinner"></div><svg class="check" viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><div><div class="step-name">Complete</div><div class="step-desc">Raw JSON saved to extracted_results/</div></div></div>
+        </div>
+        <div class="log-box" id="logBox"></div>
+      </div>
+
+      <div class="results-panel" id="resultsPanel"></div>
+    </main>
+  </div>
+</div>
+
+<script>
+const MODELS = {
+  nvidia:    ["meta/llama-3.3-70b-instruct","meta/llama-3.1-70b-instruct"],
+  anthropic: ["claude-haiku-4-5-20251001","claude-sonnet-4-6","claude-opus-4-6"],
+  ollama:    ["gemma4:31b","gemma4:12b","llama3.3:70b"],
+  openai:    ["gpt-4o","gpt-4o-mini"],
+};
+const PL_FIELDS = [
+  { key:"Total_Revenue",    label:"Net Revenue",              row:"Row 7"  },
+  { key:"Gross_Margin",     label:"Gross Margin",             row:"Row 10" },
+  { key:"SGA",              label:"SG&A",                     row:"Row 13" },
+  { key:"Operating_Income", label:"Operating Income",         row:"Row 15" },
+  { key:"Adj_EBITDA",       label:"Adj. EBITDA",              row:"Row 18" },
+  { key:"EBITDA",           label:"EBITDA (Reported)",        row:"Ref."   },
+  { key:"Other_Expense",    label:"Other Expense / (Income)", row:"Row 21" },
+  { key:"Interest_Expense", label:"Interest Expense",         row:"Row 22" },
+  { key:"Depreciation",     label:"Depreciation",             row:"Row 23" },
+  { key:"CAPEX",            label:"CAPEX",                    row:"Row 32" },
+  { key:"WC_Change",        label:"Working Capital Change",   row:"Row 33" },
+];
+const SOURCES_FIELDS = [
+  { key:"AR",        label:"Accounts Receivable", cell:"C7 (Sources)" },
+  { key:"Inventory", label:"Inventory",           cell:"C8 (Sources)" },
+];
+
+let currentJobId = null, pollTimer = null, envKeys = {};
+
+window.addEventListener("DOMContentLoaded", async () => {
+  populateModels();
+  await loadEnvStatus();
+  setupDragDrop();
+  document.getElementById("pdfInput").addEventListener("change", e => { if(e.target.files[0]) showFile(e.target.files[0].name); });
+});
+
+async function loadEnvStatus() {
+  try { const r = await fetch("/api/env-keys"); envKeys = await r.json(); updateKeyStatus(); } catch(_) {}
+}
+
+function populateModels() {
+  const prov = document.getElementById("providerSelect").value;
+  const sel = document.getElementById("modelSelect");
+  sel.innerHTML = "";
+  (MODELS[prov]||[]).forEach(m => { const o = document.createElement("option"); o.value=m; o.textContent=m; sel.appendChild(o); });
+}
+
+function onProviderChange() { populateModels(); updateKeyStatus(); }
+
+function updateKeyStatus() {
+  const prov = document.getElementById("providerSelect").value;
+  const manual = document.getElementById("apiKeyInput").value.trim();
+  const dot = document.getElementById("keyDot"), msg = document.getElementById("keyStatus");
+  if (manual) { dot.className="dot ok"; msg.textContent="Using manually entered key"; return; }
+  if (envKeys[prov]) { dot.className="dot ok"; msg.textContent="Key loaded from .env"; }
+  else { dot.className="dot err"; msg.textContent="Key not found in .env — enter above"; }
+}
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("apiKeyInput").addEventListener("input", updateKeyStatus);
+});
+
+function setupDragDrop() {
+  const zone = document.getElementById("uploadZone");
+  zone.addEventListener("dragover", e => { e.preventDefault(); zone.classList.add("drag-over"); });
+  zone.addEventListener("dragleave", () => zone.classList.remove("drag-over"));
+  zone.addEventListener("drop", e => {
+    e.preventDefault(); zone.classList.remove("drag-over");
+    const f = e.dataTransfer.files[0];
+    if (f && f.name.endsWith(".pdf")) {
+      const dt = new DataTransfer(); dt.items.add(f);
+      document.getElementById("pdfInput").files = dt.files;
+      showFile(f.name);
+    }
+  });
+}
+
+function showFile(name) {
+  const el = document.getElementById("uploadFilename");
+  el.textContent = name; el.style.display = "inline-block";
+  document.querySelector(".upload-label").textContent = "PDF selected";
+}
+
+async function startExtraction() {
+  const pdfInput = document.getElementById("pdfInput");
+  if (!pdfInput.files[0]) { alert("Please upload a PDF first."); return; }
+  const provider = document.getElementById("providerSelect").value;
+  const model    = document.getElementById("modelSelect").value;
+  const apiKey   = document.getElementById("apiKeyInput").value.trim();
+  const dealName = document.getElementById("dealName").value.trim();
+  const fd = new FormData();
+  fd.append("pdf", pdfInput.files[0]);
+  fd.append("provider", provider);
+  fd.append("model", model);
+  if (apiKey) fd.append("api_key", apiKey);
+
+  showPanel("progress");
+  document.getElementById("progressDealName").textContent = dealName || pdfInput.files[0].name;
+  document.getElementById("runBtn").disabled = true;
+  resetSteps();
+  setStep("parsing","active");
+
+  try {
+    const res = await fetch("/api/extract", { method:"POST", body:fd });
+    const data = await res.json();
+    if (!res.ok) { showError(data.error||"Server error"); return; }
+    currentJobId = data.job_id;
+    pollTimer = setInterval(pollStatus, 1500);
+  } catch(e) { showError(String(e)); }
+}
+
+async function pollStatus() {
+  if (!currentJobId) return;
+  try {
+    const res = await fetch(`/api/status/${currentJobId}`);
+    const data = await res.json();
+    const logBox = document.getElementById("logBox");
+    logBox.textContent = data.log.join("\n");
+    logBox.scrollTop = logBox.scrollHeight;
+    const s = data.status;
+    if (s==="parsing")    { setStep("parsing","active"); }
+    if (s==="filtering")  { setStep("parsing","done"); setStep("filtering","active"); }
+    if (s==="extracting") { setStep("parsing","done"); setStep("filtering","done"); setStep("extracting","active"); }
+    if (s==="done") {
+      clearInterval(pollTimer);
+      ["parsing","filtering","extracting","done"].forEach(id => setStep(id,"done"));
+      await loadResults(currentJobId, document.getElementById("dealName").value.trim() || document.getElementById("pdfInput").files[0]?.name || "");
+    }
+    if (s==="error") { clearInterval(pollTimer); showError(data.error||"Unknown error"); }
+  } catch(e) { console.error(e); }
+}
+
+async function loadResults(jobId, dealName) {
+  const res = await fetch(`/api/result/${jobId}`);
+  const data = await res.json();
+  renderResults(data.raw, dealName, jobId);
+  document.getElementById("runBtn").disabled = false;
+}
+
+function renderResults(raw, dealName, jobId) {
+  const panel = document.getElementById("resultsPanel");
+  const found = [...PL_FIELDS,...SOURCES_FIELDS].filter(f => raw[f.key]!==null && raw[f.key]!==undefined).length;
+  const total = PL_FIELDS.length + SOURCES_FIELDS.length;
+
+  // Build column order from raw JSON year keys
+  const allKeys = new Set();
+  PL_FIELDS.forEach(f => { const v=raw[f.key]; if(v&&typeof v==="object") Object.keys(v).forEach(k=>allKeys.add(k)); });
+  const actuals   = [...allKeys].filter(k=>k.toUpperCase().endsWith("_A")).sort();
+  const ttms      = [...allKeys].filter(k=>k.toUpperCase().startsWith("TTM")).sort();
+  const projected = [...allKeys].filter(k=>k.toUpperCase().endsWith("_E")).sort();
+  const cols = [...actuals,...ttms,...projected];
+
+  function fmtHdr(k) {
+    if (k.toUpperCase().startsWith("TTM")) return "TTM";
+    return k.replace("_A","A").replace("_E","E");
+  }
+
+  let plRows = "";
+  PL_FIELDS.forEach(f => {
+    const fd = raw[f.key];
+    if (!fd||typeof fd!=="object") return;
+    let cells = `<td><div class="field-name">${f.label}</div><div class="field-row-hint">${f.row}</div></td>`;
+    cols.forEach(col => { cells += `<td>${fmtCell(fd[col]!==undefined?fd[col]:null)}</td>`; });
+    plRows += `<tr>${cells}</tr>`;
+  });
+
+  const colHeaders = cols.map(c => {
+    const isProj = c.toUpperCase().endsWith("_E");
+    const style = isProj?' style="color:var(--accent);opacity:0.8"':'';
+    return `<th${style}>${fmtHdr(c)}</th>`;
+  }).join("");
+
+  let srcCards = "";
+  SOURCES_FIELDS.forEach(f => {
+    const val = raw[f.key];
+    const isNull = val===null||val===undefined;
+    srcCards += `<div class="source-card ${isNull?"source-null":""}">
+      <div class="source-label">${f.label}</div>
+      <div class="source-cell">${f.cell}</div>
+      <div class="source-value">${isNull?"—":fmtNum(val)}</div>
+      <div class="source-unit">${isNull?"Not found in document":"$ in 000s &nbsp;·&nbsp; Most recent actual"}</div>
+    </div>`;
+  });
+
+  panel.innerHTML = `
+    <div class="results-header">
+      <div>
+        <div class="results-title">${escHtml(dealName||"Extraction Results")}</div>
+        <div class="results-meta">
+          <span class="badge-found">${found} / ${total} fields extracted</span>
+          &nbsp;&nbsp;All values in $000s &nbsp;·&nbsp; Units normalised per table
+        </div>
+      </div>
+    </div>
+    <div class="section-hdr">Income Statement &amp; Cash Flow</div>
+    <div class="data-table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Field</th>${colHeaders}</tr></thead>
+        <tbody>${plRows}</tbody>
+      </table>
+    </div>
+    <div class="section-hdr">ABL Collateral — Sources Section</div>
+    <div class="sources-grid">${srcCards}</div>
+    <div class="download-row">
+      <a class="dl-btn" href="/api/download/${jobId}" download>
+        <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        Download JSON
+      </a>
+    </div>
+    <div class="expander" id="expRaw">
+      <div class="expander-header" onclick="toggleExpander('expRaw')">
+        View extracted JSON
+        <svg class="expander-arrow" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <pre class="expander-body">${escHtml(JSON.stringify(raw,null,2))}</pre>
+    </div>`;
+
+  showPanel("results");
+}
+
+function fmtCell(v) {
+  if (v===null||v===undefined) return '<span class="val-null">—</span>';
+  if (typeof v==="object") {
+    const num=v.value, src=v.source||"", conf=v.confidence||"";
+    if (num===null||num===undefined) return '<span class="val-null">—</span>';
+    return `<span class="val-obj ${num<0?"neg":""}">${fmtNum(num)}<br><small style="font-size:.65rem;opacity:.5">${src}/${conf}</small></span>`;
+  }
+  const n=Number(v);
+  return `<span class="val-number ${n<0?"neg":""}">${fmtNum(v)}</span>`;
+}
+
+function fmtNum(v) {
+  if (v===null||v===undefined) return "—";
+  const n=Number(v);
+  if (isNaN(n)) return String(v);
+  return n.toLocaleString("en-US",{maximumFractionDigits:0});
+}
+
+function escHtml(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+function showPanel(name) {
+  document.getElementById("idleState").style.display      = name==="idle"     ? "" : "none";
+  document.getElementById("progressPanel").style.display  = name==="progress" ? "block" : "none";
+  document.getElementById("resultsPanel").style.display   = name==="results"  ? "block" : "none";
+}
+
+function resetSteps() {
+  ["parsing","filtering","extracting","done"].forEach(id=>setStep(id,"pending"));
+  document.getElementById("logBox").textContent="";
+}
+
+function setStep(id,state) {
+  const dot=document.getElementById(`dot-${id}`);
+  if (dot) dot.className=`step-dot ${state}`;
+}
+
+function showError(msg) {
+  clearInterval(pollTimer);
+  const panel=document.getElementById("progressPanel");
+  let box=document.getElementById("errBox");
+  if (!box) { box=document.createElement("div"); box.id="errBox"; box.className="error-box"; panel.appendChild(box); }
+  box.textContent="Error: "+msg;
+  document.getElementById("runBtn").disabled=false;
+}
+
+function toggleExpander(id) { document.getElementById(id).classList.toggle("open"); }
+</script>
+</body>
+</html>
